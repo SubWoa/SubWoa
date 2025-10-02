@@ -25,7 +25,7 @@
   </style>
 </head>
 <body>
-  <div id="version">v1.10</div>
+  <div id="version">v1.11</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const scene = new THREE.Scene();
@@ -337,8 +337,14 @@
         const data = imageData.data;
         const newData = new Uint8ClampedArray(data);
 
+        const pixelsMatch = (idxA, idxB) =>
+          data[idxA] === data[idxB] &&
+          data[idxA + 1] === data[idxB + 1] &&
+          data[idxA + 2] === data[idxB + 2] &&
+          data[idxA + 3] === data[idxB + 3];
+
         // Copy painted pixels downward (splotches stay in place, drips extend below)
-        // Scan top to bottom - only extend to originally empty pixels
+        // Only drip from pixels whose immediate horizontal neighbors share the same color
         for (let y = 0; y < canvasSize - 1; y++) {
           for (let x = 0; x < canvasSize; x++) {
             const currentIdx = (y * canvasSize + x) * 4;
@@ -346,6 +352,17 @@
 
             // Copy paint down if current has paint
             if (data[currentIdx + 3] > 0) {
+              let shouldDrip = false;
+              if (x > 0 && x < canvasSize - 1) {
+                const leftIdx = currentIdx - 4;
+                const rightIdx = currentIdx + 4;
+                shouldDrip = pixelsMatch(currentIdx, leftIdx) && pixelsMatch(currentIdx, rightIdx);
+              }
+
+              if (!shouldDrip) {
+                continue;
+              }
+
               newData[belowIdx] = data[currentIdx];
               newData[belowIdx + 1] = data[currentIdx + 1];
               newData[belowIdx + 2] = data[currentIdx + 2];
