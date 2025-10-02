@@ -140,38 +140,102 @@
     camera.position.y = 5;
     camera.lookAt(0, 0, 0);
 
-    // Array to store wall splotches
-    const splotches = [];
+    // Create paint canvases for each wall
+    const wallCanvases = {};
+    const wallTextures = {};
+    const wallPlanes = {};
+    const canvasSize = 1024;
 
-    // Helper function to create a splotch on the wall
-    function createSplotch(x, y, z, color, size) {
-      const splotchGeometry = new THREE.CircleGeometry(size, 16);
-      const splotchMaterial = new THREE.MeshBasicMaterial({
-        color: color,
-        side: THREE.FrontSide, // Only render front side (backface culling)
+    function createWallCanvas(wallName) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+
+      const geometry = new THREE.PlaneGeometry(boxSize, boxSize);
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
         transparent: true,
-        opacity: 0.6
+        side: THREE.FrontSide,
+        opacity: 0.8
       });
-      const splotch = new THREE.Mesh(splotchGeometry, splotchMaterial);
+      const plane = new THREE.Mesh(geometry, material);
 
-      // Position and orient the splotch on the wall with normal pointing INWARD
-      splotch.position.set(x, y, z);
-
-      // Orient perpendicular to the wall - rotated so normal points inward
-      const halfBox = boxSize / 2;
-      if (Math.abs(x) > halfBox - 0.1) {
-        // On X walls - rotate to face inward
-        splotch.rotation.y = Math.sign(x) > 0 ? -Math.PI / 2 : Math.PI / 2;
-      } else if (Math.abs(y) > halfBox - 0.1) {
-        // On Y walls - rotate to face inward
-        splotch.rotation.x = Math.sign(y) > 0 ? Math.PI / 2 : -Math.PI / 2;
-      } else if (Math.abs(z) > halfBox - 0.1) {
-        // On Z walls - rotate to face inward
-        splotch.rotation.y = Math.sign(z) > 0 ? Math.PI : 0;
+      // Position and orient plane based on wall
+      if (wallName === 'front') {
+        plane.position.z = halfBox - 0.01;
+        plane.rotation.y = Math.PI;
+      } else if (wallName === 'back') {
+        plane.position.z = -halfBox + 0.01;
+      } else if (wallName === 'left') {
+        plane.position.x = -halfBox + 0.01;
+        plane.rotation.y = Math.PI / 2;
+      } else if (wallName === 'right') {
+        plane.position.x = halfBox - 0.01;
+        plane.rotation.y = -Math.PI / 2;
+      } else if (wallName === 'top') {
+        plane.position.y = halfBox - 0.01;
+        plane.rotation.x = Math.PI / 2;
+      } else if (wallName === 'bottom') {
+        plane.position.y = -halfBox + 0.01;
+        plane.rotation.x = -Math.PI / 2;
       }
 
-      scene.add(splotch);
-      splotches.push(splotch);
+      scene.add(plane);
+      wallCanvases[wallName] = ctx;
+      wallTextures[wallName] = texture;
+      wallPlanes[wallName] = plane;
+    }
+
+    createWallCanvas('front');
+    createWallCanvas('back');
+    createWallCanvas('left');
+    createWallCanvas('right');
+    createWallCanvas('top');
+    createWallCanvas('bottom');
+
+    // Helper function to paint a splotch on the wall canvas
+    function paintSplotch(x, y, z, color, size) {
+      const halfBox = boxSize / 2;
+      let wallName, u, v;
+
+      // Determine which wall and convert to UV coordinates (0-1)
+      if (Math.abs(x) > halfBox - 0.1) {
+        wallName = Math.sign(x) > 0 ? 'right' : 'left';
+        u = (z + halfBox) / boxSize;
+        v = 1 - (y + halfBox) / boxSize;
+      } else if (Math.abs(y) > halfBox - 0.1) {
+        wallName = Math.sign(y) > 0 ? 'top' : 'bottom';
+        u = (x + halfBox) / boxSize;
+        v = 1 - (z + halfBox) / boxSize;
+      } else if (Math.abs(z) > halfBox - 0.1) {
+        wallName = Math.sign(z) > 0 ? 'front' : 'back';
+        u = Math.sign(z) > 0 ? 1 - (x + halfBox) / boxSize : (x + halfBox) / boxSize;
+        v = 1 - (y + halfBox) / boxSize;
+      }
+
+      if (!wallName) return;
+
+      const ctx = wallCanvases[wallName];
+      const pixelX = u * canvasSize;
+      const pixelY = v * canvasSize;
+      const pixelRadius = (size / boxSize) * canvasSize;
+
+      // Draw circle on canvas
+      ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.arc(pixelX, pixelY, pixelRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+
+      // Update texture
+      wallTextures[wallName].needsUpdate = true;
     }
 
     // Helper function to create a new ball
@@ -204,19 +268,19 @@
           ball.velocity.x *= -1;
           const wallX = Math.sign(ball.position.x) * halfBox;
           ball.position.x = Math.sign(ball.position.x) * (halfBox - ball.radius);
-          createSplotch(wallX, ball.position.y, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
+          paintSplotch(wallX, ball.position.y, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
         }
         if (Math.abs(ball.position.y) > halfBox - ball.radius) {
           ball.velocity.y *= -1;
           const wallY = Math.sign(ball.position.y) * halfBox;
           ball.position.y = Math.sign(ball.position.y) * (halfBox - ball.radius);
-          createSplotch(ball.position.x, wallY, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
+          paintSplotch(ball.position.x, wallY, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
         }
         if (Math.abs(ball.position.z) > halfBox - ball.radius) {
           ball.velocity.z *= -1;
           const wallZ = Math.sign(ball.position.z) * halfBox;
           ball.position.z = Math.sign(ball.position.z) * (halfBox - ball.radius);
-          createSplotch(ball.position.x, ball.position.y, wallZ, ball.material.color.getHex(), ball.radius * 1.5);
+          paintSplotch(ball.position.x, ball.position.y, wallZ, ball.material.color.getHex(), ball.radius * 1.5);
         }
       });
 
