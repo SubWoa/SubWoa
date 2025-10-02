@@ -280,19 +280,19 @@
         const data = imageData.data;
         const newData = new Uint8ClampedArray(data);
 
-        // Scan from bottom to top, move paint down
+        // Scan from bottom to top, extend paint downward
         for (let y = canvasSize - 2; y >= 0; y--) {
           for (let x = 0; x < canvasSize; x++) {
             const currentIdx = (y * canvasSize + x) * 4;
             const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
-            // If current pixel has paint and below is empty, move it down
+            // If current pixel has paint and below is empty, copy paint down (keep original)
             if (newData[currentIdx + 3] > 0 && newData[belowIdx + 3] === 0) {
               newData[belowIdx] = newData[currentIdx];
               newData[belowIdx + 1] = newData[currentIdx + 1];
               newData[belowIdx + 2] = newData[currentIdx + 2];
               newData[belowIdx + 3] = newData[currentIdx + 3];
-              newData[currentIdx + 3] = 0; // Clear original
+              // Don't clear original - paint stays and extends down
             }
           }
         }
