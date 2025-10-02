@@ -344,10 +344,16 @@
       camera.lookAt(0, 0, 0);
 
       // Hide edges where both adjacent walls are opaque (camera can't see through either)
+      // Exception: always show edges touching top or bottom
       boxEdges.forEach(edge => {
         const walls = edge.userData.walls;
-        const bothOpaque = walls.every(wall => !canSeeThroughWall(wall));
-        edge.visible = !bothOpaque;
+        const hasTopOrBottom = walls.includes('top') || walls.includes('bottom');
+        if (hasTopOrBottom) {
+          edge.visible = true;
+        } else {
+          const bothOpaque = walls.every(wall => !canSeeThroughWall(wall));
+          edge.visible = !bothOpaque;
+        }
       });
 
       renderer.render(scene, camera);
