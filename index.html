@@ -343,11 +343,11 @@
       camera.position.z = Math.cos(time) * 15;
       camera.lookAt(0, 0, 0);
 
-      // Hide edges where both adjacent walls are transparent (camera sees through both)
+      // Hide edges where both adjacent walls are opaque (camera can't see through either)
       boxEdges.forEach(edge => {
         const walls = edge.userData.walls;
-        const bothTransparent = walls.every(wall => canSeeThroughWall(wall));
-        edge.visible = !bothTransparent;
+        const bothOpaque = walls.every(wall => !canSeeThroughWall(wall));
+        edge.visible = !bothOpaque;
       });
 
       renderer.render(scene, camera);
