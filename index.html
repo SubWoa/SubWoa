@@ -26,68 +26,20 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Create the box boundaries - we'll use custom rendering to hide camera-facing edges
+    // Create the box with inward-facing normals so backface culling hides camera-facing walls
     const boxSize = 15;
-
-    // We'll create planes for each wall face with wireframe material
-    // This allows us to control visibility per face
-    const boxEdges = [];
     const halfBox = boxSize / 2;
 
-    function createWallEdges(normal, color = 0x222222) {
-      const geometry = new THREE.PlaneGeometry(boxSize, boxSize);
-      const material = new THREE.MeshBasicMaterial({
-        color: color,
-        wireframe: true,
-        transparent: true,
-        opacity: 0,
-        side: THREE.DoubleSide
-      });
-      const edges = new THREE.EdgesGeometry(geometry);
-      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x222222 }));
-      line.userData.normal = normal;
-      return line;
-    }
+    // Create box geometry and flip it inside-out
+    const boxGeometry = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+    boxGeometry.scale(-1, -1, -1); // Flip normals to point inward
 
-    // Front face (z+)
-    const frontEdges = createWallEdges(new THREE.Vector3(0, 0, 1));
-    frontEdges.position.z = halfBox;
-    scene.add(frontEdges);
-    boxEdges.push(frontEdges);
-
-    // Back face (z-)
-    const backEdges = createWallEdges(new THREE.Vector3(0, 0, -1));
-    backEdges.position.z = -halfBox;
-    scene.add(backEdges);
-    boxEdges.push(backEdges);
-
-    // Left face (x-)
-    const leftEdges = createWallEdges(new THREE.Vector3(-1, 0, 0));
-    leftEdges.rotation.y = Math.PI / 2;
-    leftEdges.position.x = -halfBox;
-    scene.add(leftEdges);
-    boxEdges.push(leftEdges);
-
-    // Right face (x+)
-    const rightEdges = createWallEdges(new THREE.Vector3(1, 0, 0));
-    rightEdges.rotation.y = Math.PI / 2;
-    rightEdges.position.x = halfBox;
-    scene.add(rightEdges);
-    boxEdges.push(rightEdges);
-
-    // Top face (y+)
-    const topEdges = createWallEdges(new THREE.Vector3(0, 1, 0));
-    topEdges.rotation.x = Math.PI / 2;
-    topEdges.position.y = halfBox;
-    scene.add(topEdges);
-    boxEdges.push(topEdges);
-
-    // Bottom face (y-)
-    const bottomEdges = createWallEdges(new THREE.Vector3(0, -1, 0));
-    bottomEdges.rotation.x = Math.PI / 2;
-    bottomEdges.position.y = -halfBox;
-    scene.add(bottomEdges);
-    boxEdges.push(bottomEdges);
+    // Use edges for wireframe with backface culling
+    const edges = new THREE.EdgesGeometry(boxGeometry);
+    const boxLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
+      color: 0x222222
+    }));
+    scene.add(boxLines);
 
     // Create bouncing balls
     const balls = [];
@@ -145,33 +97,30 @@
       const splotchGeometry = new THREE.CircleGeometry(size, 16);
       const splotchMaterial = new THREE.MeshBasicMaterial({
         color: color,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide, // Only render front side (backface culling)
         transparent: true,
         opacity: 0.6
       });
       const splotch = new THREE.Mesh(splotchGeometry, splotchMaterial);
 
-      // Position and orient the splotch on the wall
+      // Position and orient the splotch on the wall with normal pointing INWARD
       splotch.position.set(x, y, z);
 
-      // Orient perpendicular to the wall it's on
+      // Orient perpendicular to the wall - rotated so normal points inward
       const halfBox = boxSize / 2;
       if (Math.abs(x) > halfBox - 0.1) {
-        splotch.rotation.y = Math.PI / 2;
+        // On X walls - rotate to face inward
+        splotch.rotation.y = Math.sign(x) > 0 ? -Math.PI / 2 : Math.PI / 2;
       } else if (Math.abs(y) > halfBox - 0.1) {
-        splotch.rotation.x = Math.PI / 2;
+        // On Y walls - rotate to face inward
+        splotch.rotation.x = Math.sign(y) > 0 ? Math.PI / 2 : -Math.PI / 2;
+      } else if (Math.abs(z) > halfBox - 0.1) {
+        // On Z walls - rotate to face inward
+        splotch.rotation.y = Math.sign(z) > 0 ? Math.PI : 0;
       }
 
       scene.add(splotch);
       splotches.push(splotch);
-    }
-
-    // Helper function to check if a wall is facing the camera
-    // A wall faces the camera if its normal points toward the camera position
-    function isWallFacingCamera(wallNormal) {
-      const cameraToOrigin = new THREE.Vector3(0, 0, 0).sub(camera.position).normalize();
-      const dot = wallNormal.dot(cameraToOrigin);
-      return dot > 0; // Wall normal pointing toward camera means it's facing away from us
     }
 
     // Helper function to create a new ball
@@ -204,34 +153,19 @@
           ball.velocity.x *= -1;
           const wallX = Math.sign(ball.position.x) * halfBox;
           ball.position.x = Math.sign(ball.position.x) * (halfBox - ball.radius);
-
-          // Only create splotch if wall is not facing camera
-          const wallNormal = new THREE.Vector3(Math.sign(ball.position.x), 0, 0);
-          if (!isWallFacingCamera(wallNormal)) {
-            createSplotch(wallX, ball.position.y, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
-          }
+          createSplotch(wallX, ball.position.y, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
         }
         if (Math.abs(ball.position.y) > halfBox - ball.radius) {
           ball.velocity.y *= -1;
           const wallY = Math.sign(ball.position.y) * halfBox;
           ball.position.y = Math.sign(ball.position.y) * (halfBox - ball.radius);
-
-          // Only create splotch if wall is not facing camera
-          const wallNormal = new THREE.Vector3(0, Math.sign(ball.position.y), 0);
-          if (!isWallFacingCamera(wallNormal)) {
-            createSplotch(ball.position.x, wallY, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
-          }
+          createSplotch(ball.position.x, wallY, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
         }
         if (Math.abs(ball.position.z) > halfBox - ball.radius) {
           ball.velocity.z *= -1;
           const wallZ = Math.sign(ball.position.z) * halfBox;
           ball.position.z = Math.sign(ball.position.z) * (halfBox - ball.radius);
-
-          // Only create splotch if wall is not facing camera
-          const wallNormal = new THREE.Vector3(0, 0, Math.sign(ball.position.z));
-          if (!isWallFacingCamera(wallNormal)) {
-            createSplotch(ball.position.x, ball.position.y, wallZ, ball.material.color.getHex(), ball.radius * 1.5);
-          }
+          createSplotch(ball.position.x, ball.position.y, wallZ, ball.material.color.getHex(), ball.radius * 1.5);
         }
       });
 
@@ -357,29 +291,6 @@
       camera.position.x = Math.sin(time) * 15;
       camera.position.z = Math.cos(time) * 15;
       camera.lookAt(0, 0, 0);
-
-      // Hide splotches on walls facing camera
-      splotches.forEach(splotch => {
-        const halfBox = boxSize / 2;
-        let wallNormal = new THREE.Vector3();
-
-        // Determine which wall the splotch is on
-        if (Math.abs(splotch.position.x) > halfBox - 0.1) {
-          wallNormal.set(Math.sign(splotch.position.x), 0, 0);
-        } else if (Math.abs(splotch.position.y) > halfBox - 0.1) {
-          wallNormal.set(0, Math.sign(splotch.position.y), 0);
-        } else if (Math.abs(splotch.position.z) > halfBox - 0.1) {
-          wallNormal.set(0, 0, Math.sign(splotch.position.z));
-        }
-
-        // Hide if facing camera
-        splotch.visible = !isWallFacingCamera(wallNormal);
-      });
-
-      // Hide box edges on walls facing camera
-      boxEdges.forEach(edge => {
-        edge.visible = !isWallFacingCamera(edge.userData.normal);
-      });
 
       renderer.render(scene, camera);
     }
