@@ -152,51 +152,67 @@
             const ny = dy / distance;
             const nz = dz / distance;
 
-            // Much larger offset to prevent immediate re-collision
-            const offset = ball1.radius + ball2.radius;
+            // Calculate perpendicular vectors for spreading the split balls
+            // Find a perpendicular vector to the collision normal
+            let perpX, perpY, perpZ;
+            if (Math.abs(nx) < 0.9) {
+              perpX = 0; perpY = -nz; perpZ = ny;
+            } else {
+              perpX = -nz; perpY = 0; perpZ = nx;
+            }
+            const perpLen = Math.sqrt(perpX * perpX + perpY * perpY + perpZ * perpZ);
+            perpX /= perpLen; perpY /= perpLen; perpZ /= perpLen;
 
-            // Create two new balls from ball1 with large separation
+            // Position new balls so they're guaranteed not to overlap
+            // Each pair of new balls needs to be separated by at least 2 * newRadius
+            // Plus extra clearance from the collision point and from each other
+
+            const clearance = 1.5; // Extra safety factor
+
+            // Ball1's two children: spread perpendicular to collision normal
+            const ball1Offset = newRadius1 * 2 * clearance;
             const newBall1a = createBall(
-              ball1.position.x - nx * offset,
-              ball1.position.y - ny * offset,
-              ball1.position.z - nz * offset,
-              ball1.velocity.x * 1.2,
-              ball1.velocity.y * 1.2,
-              ball1.velocity.z * 1.2,
+              ball1.position.x + perpX * ball1Offset,
+              ball1.position.y + perpY * ball1Offset,
+              ball1.position.z + perpZ * ball1Offset,
+              ball1.velocity.x + perpX * 0.02,
+              ball1.velocity.y + perpY * 0.02,
+              ball1.velocity.z + perpZ * 0.02,
               newRadius1,
               ball1.material.color.getHex()
             );
 
             const newBall1b = createBall(
-              ball1.position.x - nx * offset * 1.5,
-              ball1.position.y - ny * offset * 1.5,
-              ball1.position.z - nz * offset * 1.5,
-              ball1.velocity.x * 0.8,
-              ball1.velocity.y * 0.8,
-              ball1.velocity.z * 0.8,
+              ball1.position.x - perpX * ball1Offset,
+              ball1.position.y - perpY * ball1Offset,
+              ball1.position.z - perpZ * ball1Offset,
+              ball1.velocity.x - perpX * 0.02,
+              ball1.velocity.y - perpY * 0.02,
+              ball1.velocity.z - perpZ * 0.02,
               newRadius1,
               ball1.material.color.getHex()
             );
 
-            // Create two new balls from ball2 with large separation
+            // Ball2's two children: spread perpendicular to collision normal (opposite direction)
+            const ball2Offset = newRadius2 * 2 * clearance;
             const newBall2a = createBall(
-              ball2.position.x + nx * offset,
-              ball2.position.y + ny * offset,
-              ball2.position.z + nz * offset,
-              ball2.velocity.x * 1.2,
-              ball2.velocity.y * 1.2,
-              ball2.velocity.z * 1.2,
+              ball2.position.x + perpX * ball2Offset,
+              ball2.position.y + perpY * ball2Offset,
+              ball2.position.z + perpZ * ball2Offset,
+              ball2.velocity.x + perpX * 0.02,
+              ball2.velocity.y + perpY * 0.02,
+              ball2.velocity.z + perpZ * 0.02,
               newRadius2,
               ball2.material.color.getHex()
             );
 
             const newBall2b = createBall(
-              ball2.position.x + nx * offset * 1.5,
-              ball2.position.y + ny * offset * 1.5,
-              ball2.position.z + nz * offset * 1.5,
-              ball2.velocity.x * 0.8,
-              ball2.velocity.y * 0.8,
-              ball2.velocity.z * 0.8,
+              ball2.position.x - perpX * ball2Offset,
+              ball2.position.y - perpY * ball2Offset,
+              ball2.position.z - perpZ * ball2Offset,
+              ball2.velocity.x - perpX * 0.02,
+              ball2.velocity.y - perpY * 0.02,
+              ball2.velocity.z - perpZ * 0.02,
               newRadius2,
               ball2.material.color.getHex()
             );
