@@ -25,7 +25,7 @@
   </style>
 </head>
 <body>
-  <div id="version">v1.5</div>
+  <div id="version">v1.7</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const scene = new THREE.Scene();
@@ -291,14 +291,15 @@
         const newData = new Uint8ClampedArray(data);
 
         // Copy painted pixels downward (splotches stay in place, drips extend below)
-        // Scan top to bottom - higher pixels dominate lower ones (gravity!)
+        // Scan top to bottom - only extend to originally empty pixels
         for (let y = 0; y < canvasSize - 1; y++) {
           for (let x = 0; x < canvasSize; x++) {
             const currentIdx = (y * canvasSize + x) * 4;
             const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
-            // If current pixel has paint, copy it to the pixel below
-            if (data[currentIdx + 3] > 0) {
+            // Only copy paint down if current has paint AND below was originally empty
+            // This prevents overwriting the original splotch
+            if (data[currentIdx + 3] > 0 && data[belowIdx + 3] === 0) {
               newData[belowIdx] = data[currentIdx];
               newData[belowIdx + 1] = data[currentIdx + 1];
               newData[belowIdx + 2] = data[currentIdx + 2];
