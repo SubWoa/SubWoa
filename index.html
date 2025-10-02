@@ -279,27 +279,36 @@
         const imageData = ctx.getImageData(0, 0, canvasSize, canvasSize);
         const data = imageData.data;
 
-        // Scan from bottom to top, extend paint downward (more aggressive dripping)
+        // Scan from bottom to top, extend paint downward in wider drips
         for (let x = 0; x < canvasSize; x++) {
           for (let y = canvasSize - 2; y >= 0; y--) {
             const idx = (y * canvasSize + x) * 4;
 
             // If current pixel has paint
             if (data[idx + 3] > 0) {
-              // Check multiple pixels below for dripping
+              // Check below for dripping
               for (let dripDist = 1; dripDist <= 3; dripDist++) {
                 if (y + dripDist >= canvasSize) break;
 
                 const belowIdx = ((y + dripDist) * canvasSize + x) * 4;
 
                 // If below is empty, randomly drip
-                if (data[belowIdx + 3] === 0 && Math.random() < 0.6) {
-                  // Copy color down at full opacity
-                  data[belowIdx] = data[idx];
-                  data[belowIdx + 1] = data[idx + 1];
-                  data[belowIdx + 2] = data[idx + 2];
-                  data[belowIdx + 3] = data[idx + 3];
-                  break; // Only extend to first empty pixel
+                if (data[belowIdx + 3] === 0 && Math.random() < 0.7) {
+                  // Create wider drip by also extending to adjacent pixels
+                  const dripWidth = Math.floor(Math.random() * 3) + 2; // 2-4 pixels wide
+
+                  for (let dx = -Math.floor(dripWidth / 2); dx <= Math.floor(dripWidth / 2); dx++) {
+                    const targetX = x + dx;
+                    if (targetX >= 0 && targetX < canvasSize) {
+                      const targetIdx = ((y + dripDist) * canvasSize + targetX) * 4;
+                      // Copy color down at full opacity
+                      data[targetIdx] = data[idx];
+                      data[targetIdx + 1] = data[idx + 1];
+                      data[targetIdx + 2] = data[idx + 2];
+                      data[targetIdx + 3] = data[idx + 3];
+                    }
+                  }
+                  break; // Only extend to first empty pixel row
                 }
               }
             }
