@@ -25,7 +25,7 @@
   </style>
 </head>
 <body>
-  <div id="version">v1.7</div>
+  <div id="version">v1.8</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const scene = new THREE.Scene();
@@ -291,19 +291,23 @@
         const newData = new Uint8ClampedArray(data);
 
         // Copy painted pixels downward (splotches stay in place, drips extend below)
-        // Scan top to bottom - only extend to originally empty pixels
+        // Track which pixels we've written to in this cycle to prevent cascading
+        const touched = new Uint8Array(canvasSize * canvasSize); // 0 = not touched, 1 = touched
+
+        // Scan top to bottom
         for (let y = 0; y < canvasSize - 1; y++) {
           for (let x = 0; x < canvasSize; x++) {
             const currentIdx = (y * canvasSize + x) * 4;
             const belowIdx = ((y + 1) * canvasSize + x) * 4;
+            const belowPixelIdx = (y + 1) * canvasSize + x;
 
-            // Only copy paint down if current has paint AND below was originally empty
-            // This prevents overwriting the original splotch
-            if (data[currentIdx + 3] > 0 && data[belowIdx + 3] === 0) {
+            // If current pixel has paint and pixel below hasn't been touched this cycle, copy down
+            if (data[currentIdx + 3] > 0 && touched[belowPixelIdx] === 0) {
               newData[belowIdx] = data[currentIdx];
               newData[belowIdx + 1] = data[currentIdx + 1];
               newData[belowIdx + 2] = data[currentIdx + 2];
               newData[belowIdx + 3] = data[currentIdx + 3];
+              touched[belowPixelIdx] = 1; // Mark as touched
             }
           }
         }
