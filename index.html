@@ -64,10 +64,17 @@
     createEdge(-halfBox, -halfBox, halfBox, -halfBox, halfBox, halfBox, ['left', 'front']);
 
     // Helper to check if camera can see through a wall (wall is transparent to camera)
-    // This happens when the camera is looking at the back of the wall (inward normal aligns with camera direction)
+    // This happens when the camera is on the inside of the wall (inward normal points toward camera)
     function canSeeThroughWall(wallName) {
-      const cameraDir = new THREE.Vector3();
-      camera.getWorldDirection(cameraDir);
+      // Vector from wall center to camera
+      const wallCenters = {
+        'front': new THREE.Vector3(0, 0, halfBox),
+        'back': new THREE.Vector3(0, 0, -halfBox),
+        'left': new THREE.Vector3(-halfBox, 0, 0),
+        'right': new THREE.Vector3(halfBox, 0, 0),
+        'top': new THREE.Vector3(0, halfBox, 0),
+        'bottom': new THREE.Vector3(0, -halfBox, 0)
+      };
 
       const wallNormals = {
         'front': new THREE.Vector3(0, 0, -1),  // inward normal
@@ -78,9 +85,10 @@
         'bottom': new THREE.Vector3(0, 1, 0)
       };
 
+      const wallToCamera = new THREE.Vector3().subVectors(camera.position, wallCenters[wallName]);
       const normal = wallNormals[wallName];
-      const dot = normal.dot(cameraDir);
-      return dot > 0; // Positive means camera direction aligns with inward normal = see through
+      const dot = normal.dot(wallToCamera);
+      return dot > 0; // Positive means inward normal points toward camera = camera is on inside
     }
 
     // Create bouncing balls
