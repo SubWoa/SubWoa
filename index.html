@@ -80,6 +80,35 @@
     camera.position.y = 5;
     camera.lookAt(0, 0, 0);
 
+    // Array to store wall splotches
+    const splotches = [];
+
+    // Helper function to create a splotch on the wall
+    function createSplotch(x, y, z, color, size) {
+      const splotchGeometry = new THREE.CircleGeometry(size, 16);
+      const splotchMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.6
+      });
+      const splotch = new THREE.Mesh(splotchGeometry, splotchMaterial);
+
+      // Position and orient the splotch on the wall
+      splotch.position.set(x, y, z);
+
+      // Orient perpendicular to the wall it's on
+      const halfBox = boxSize / 2;
+      if (Math.abs(x) > halfBox - 0.1) {
+        splotch.rotation.y = Math.PI / 2;
+      } else if (Math.abs(y) > halfBox - 0.1) {
+        splotch.rotation.x = Math.PI / 2;
+      }
+
+      scene.add(splotch);
+      splotches.push(splotch);
+    }
+
     // Helper function to create a new ball
     function createBall(x, y, z, vx, vy, vz, r, color) {
       const geometry = new THREE.SphereGeometry(r, 16, 16);
@@ -103,20 +132,26 @@
         // Update position
         ball.position.add(ball.velocity);
 
-        // Bounce off walls
+        // Bounce off walls and create splotches
         const halfBox = boxSize / 2;
 
         if (Math.abs(ball.position.x) > halfBox - ball.radius) {
           ball.velocity.x *= -1;
+          const wallX = Math.sign(ball.position.x) * halfBox;
           ball.position.x = Math.sign(ball.position.x) * (halfBox - ball.radius);
+          createSplotch(wallX, ball.position.y, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
         }
         if (Math.abs(ball.position.y) > halfBox - ball.radius) {
           ball.velocity.y *= -1;
+          const wallY = Math.sign(ball.position.y) * halfBox;
           ball.position.y = Math.sign(ball.position.y) * (halfBox - ball.radius);
+          createSplotch(ball.position.x, wallY, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
         }
         if (Math.abs(ball.position.z) > halfBox - ball.radius) {
           ball.velocity.z *= -1;
+          const wallZ = Math.sign(ball.position.z) * halfBox;
           ball.position.z = Math.sign(ball.position.z) * (halfBox - ball.radius);
+          createSplotch(ball.position.x, ball.position.y, wallZ, ball.material.color.getHex(), ball.radius * 1.5);
         }
       });
 
