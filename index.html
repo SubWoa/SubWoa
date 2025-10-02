@@ -25,7 +25,7 @@
   </style>
 </head>
 <body>
-  <div id="version">v1.2</div>
+  <div id="version">v1.3</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const scene = new THREE.Scene();
@@ -290,19 +290,19 @@
         const data = imageData.data;
         const newData = new Uint8ClampedArray(data);
 
-        // Every painted pixel extends down by filling the pixel below it
-        // Scan bottom to top and always overwrite pixel below
-        for (let y = canvasSize - 2; y >= 0; y--) {
+        // Shift all painted pixels down by one row
+        // Start from bottom and work up, copying each pixel to the row below
+        for (let y = canvasSize - 1; y > 0; y--) {
           for (let x = 0; x < canvasSize; x++) {
             const currentIdx = (y * canvasSize + x) * 4;
-            const belowIdx = ((y + 1) * canvasSize + x) * 4;
+            const aboveIdx = ((y - 1) * canvasSize + x) * 4;
 
-            // If current pixel has paint, extend it down (overwrite whatever is below)
-            if (data[currentIdx + 3] > 0) {
-              newData[belowIdx] = data[currentIdx];
-              newData[belowIdx + 1] = data[currentIdx + 1];
-              newData[belowIdx + 2] = data[currentIdx + 2];
-              newData[belowIdx + 3] = data[currentIdx + 3];
+            // Copy pixel from above if it exists
+            if (data[aboveIdx + 3] > 0) {
+              newData[currentIdx] = data[aboveIdx];
+              newData[currentIdx + 1] = data[aboveIdx + 1];
+              newData[currentIdx + 2] = data[aboveIdx + 2];
+              newData[currentIdx + 3] = data[aboveIdx + 3];
             }
           }
         }
