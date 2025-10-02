@@ -345,7 +345,7 @@
             const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
             // Copy paint down if current has paint
-            if (data[currentIdx + 3] > 0 && data[belowIdx + 3] === 0) {
+            if (data[currentIdx + 3] > 0) {
               newData[belowIdx] = data[currentIdx];
               newData[belowIdx + 1] = data[currentIdx + 1];
               newData[belowIdx + 2] = data[currentIdx + 2];
