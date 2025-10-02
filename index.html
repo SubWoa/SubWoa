@@ -92,15 +92,22 @@
       return dot > 0; // Positive means inward normal points toward camera = camera is on inside
     }
 
-    // Create bouncing balls
+    // Create bouncing balls - Splatoon style with two team colors
     const balls = [];
     const numBalls = 40;
     const radius = 0.3;
 
+    // Splatoon-inspired team colors (orange vs blue)
+    const teamColors = [
+      0xFF6B00, // Orange team
+      0x00D9FF  // Cyan/blue team
+    ];
+
     for (let i = 0; i < numBalls; i++) {
       const geometry = new THREE.SphereGeometry(radius, 16, 16);
+      const teamColor = teamColors[i % 2]; // Alternate between teams
       const material = new THREE.MeshPhongMaterial({
-        color: Math.random() * 0xffffff,
+        color: teamColor,
         shininess: 100
       });
       const ball = new THREE.Mesh(geometry, material);
@@ -238,6 +245,41 @@
       wallTextures[wallName].needsUpdate = true;
     }
 
+    // Helper function to apply drip effect on vertical walls
+    let dripFrameCounter = 0;
+    function applyDripEffect() {
+      const verticalWalls = ['front', 'back', 'left', 'right'];
+
+      verticalWalls.forEach(wallName => {
+        const ctx = wallCanvases[wallName];
+        const imageData = ctx.getImageData(0, 0, canvasSize, canvasSize);
+        const data = imageData.data;
+
+        // Scan from bottom to top, extend paint downward
+        for (let x = 0; x < canvasSize; x++) {
+          for (let y = canvasSize - 2; y >= 0; y--) {
+            const idx = (y * canvasSize + x) * 4;
+            const belowIdx = ((y + 1) * canvasSize + x) * 4;
+
+            // If current pixel has paint and below is empty
+            if (data[idx + 3] > 0 && data[belowIdx + 3] === 0) {
+              // Randomly drip down
+              if (Math.random() < 0.3) {
+                // Copy color down with slight fade
+                data[belowIdx] = data[idx];
+                data[belowIdx + 1] = data[idx + 1];
+                data[belowIdx + 2] = data[idx + 2];
+                data[belowIdx + 3] = Math.max(0, data[idx + 3] * 0.95);
+              }
+            }
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+        wallTextures[wallName].needsUpdate = true;
+      });
+    }
+
     // Helper function to create a new ball
     function createBall(x, y, z, vx, vy, vz, r, color) {
       const geometry = new THREE.SphereGeometry(r, 16, 16);
@@ -256,6 +298,13 @@
     // Animation loop
     function animate() {
       requestAnimationFrame(animate);
+
+      // Apply drip effect every 10 frames
+      dripFrameCounter++;
+      if (dripFrameCounter >= 10) {
+        applyDripEffect();
+        dripFrameCounter = 0;
+      }
 
       balls.forEach(ball => {
         // Update position
