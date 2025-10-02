@@ -242,10 +242,27 @@
       const pixelY = v * canvasSize;
       const pixelRadius = (size / boxSize) * canvasSize;
 
-      // Draw circle on canvas at full opacity
+      // Draw paint splatter (random organic shape) at full opacity
       ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
       ctx.beginPath();
-      ctx.arc(pixelX, pixelY, pixelRadius, 0, Math.PI * 2);
+
+      // Create random splatter shape using multiple circles with varying radii
+      const numSplats = Math.floor(Math.random() * 5) + 8; // 8-12 splats
+      for (let i = 0; i < numSplats; i++) {
+        const angle = (i / numSplats) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+        const distance = pixelRadius * (0.3 + Math.random() * 0.7);
+        const splatX = pixelX + Math.cos(angle) * distance;
+        const splatY = pixelY + Math.sin(angle) * distance;
+        const splatRadius = pixelRadius * (0.3 + Math.random() * 0.4);
+
+        ctx.moveTo(splatX + splatRadius, splatY);
+        ctx.arc(splatX, splatY, splatRadius, 0, Math.PI * 2);
+      }
+
+      // Add main center blob
+      ctx.moveTo(pixelX + pixelRadius * 0.6, pixelY);
+      ctx.arc(pixelX, pixelY, pixelRadius * 0.6, 0, Math.PI * 2);
+
       ctx.fill();
 
       // Update texture
