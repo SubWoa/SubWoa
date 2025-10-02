@@ -168,6 +168,7 @@
 
     // Create paint canvases for each wall
     const wallCanvases = {};
+    const wallPaintData = {};
     const wallTextures = {};
     const wallPlanes = {};
     const canvasSize = 1024;
@@ -214,6 +215,9 @@
 
       scene.add(plane);
       wallCanvases[wallName] = ctx;
+      const imageData = ctx.createImageData(canvasSize, canvasSize);
+      wallPaintData[wallName] = imageData;
+      ctx.putImageData(imageData, 0, 0);
       wallTextures[wallName] = texture;
       wallPlanes[wallName] = plane;
     }
@@ -248,15 +252,18 @@
       if (!wallName) return;
 
       const ctx = wallCanvases[wallName];
+      const imageData = wallPaintData[wallName];
+      const data = imageData.data;
       const pixelX = u * canvasSize;
       const pixelY = v * canvasSize;
       const pixelRadius = (size / boxSize) * canvasSize;
 
-      // Draw paint splatter (random organic shape) at full opacity
-      ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
-      ctx.beginPath();
+      const colorR = (color >> 16) & 0xFF;
+      const colorG = (color >> 8) & 0xFF;
+      const colorB = color & 0xFF;
 
-      // Create random splatter shape using multiple circles with varying radii
+      // Build the splatter from overlapping opaque circles
+      const circles = [];
       const numSplats = Math.floor(Math.random() * 5) + 8; // 8-12 splats
       for (let i = 0; i < numSplats; i++) {
         const angle = (i / numSplats) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
@@ -264,16 +271,56 @@
         const splatX = pixelX + Math.cos(angle) * distance;
         const splatY = pixelY + Math.sin(angle) * distance;
         const splatRadius = pixelRadius * (0.3 + Math.random() * 0.4);
+        circles.push({ x: splatX, y: splatY, r: splatRadius });
+      }
+      circles.push({ x: pixelX, y: pixelY, r: pixelRadius * 0.6 });
 
-        ctx.moveTo(splatX + splatRadius, splatY);
-        ctx.arc(splatX, splatY, splatRadius, 0, Math.PI * 2);
+      let minX = canvasSize;
+      let minY = canvasSize;
+      let maxX = 0;
+      let maxY = 0;
+
+      circles.forEach(circle => {
+        const left = Math.max(0, Math.floor(circle.x - circle.r));
+        const right = Math.min(canvasSize - 1, Math.ceil(circle.x + circle.r));
+        const top = Math.max(0, Math.floor(circle.y - circle.r));
+        const bottom = Math.min(canvasSize - 1, Math.ceil(circle.y + circle.r));
+        if (left < minX) minX = left;
+        if (right > maxX) maxX = right;
+        if (top < minY) minY = top;
+        if (bottom > maxY) maxY = bottom;
+      });
+
+      if (minX > maxX || minY > maxY) {
+        return;
       }
 
-      // Add main center blob
-      ctx.moveTo(pixelX + pixelRadius * 0.6, pixelY);
-      ctx.arc(pixelX, pixelY, pixelRadius * 0.6, 0, Math.PI * 2);
+      for (let py = minY; py <= maxY; py++) {
+        const centerY = py + 0.5;
+        for (let px = minX; px <= maxX; px++) {
+          const centerX = px + 0.5;
+          let inside = false;
+          for (let i = 0; i < circles.length; i++) {
+            const circle = circles[i];
+            const dx = centerX - circle.x;
+            const dy = centerY - circle.y;
+            if (dx * dx + dy * dy <= circle.r * circle.r) {
+              inside = true;
+              break;
+            }
+          }
 
-      ctx.fill();
+          if (!inside) continue;
+
+          const idx = (py * canvasSize + px) * 4;
+          data[idx] = colorR;
+          data[idx + 1] = colorG;
+          data[idx + 2] = colorB;
+          data[idx + 3] = 255;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
 
       // Update texture
       wallTextures[wallName].needsUpdate = true;
@@ -286,7 +333,7 @@
 
       verticalWalls.forEach(wallName => {
         const ctx = wallCanvases[wallName];
-        const imageData = ctx.getImageData(0, 0, canvasSize, canvasSize);
+        const imageData = wallPaintData[wallName];
         const data = imageData.data;
         const newData = new Uint8ClampedArray(data);
 
@@ -298,7 +345,7 @@
             const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
             // Copy paint down if current has paint
-            if (data[currentIdx + 3] > 0) {
+            if (data[currentIdx + 3] > 0 && data[belowIdx + 3] === 0) {
               newData[belowIdx] = data[currentIdx];
               newData[belowIdx + 1] = data[currentIdx + 1];
               newData[belowIdx + 2] = data[currentIdx + 2];
@@ -307,7 +354,8 @@
           }
         }
 
-        ctx.putImageData(new ImageData(newData, canvasSize, canvasSize), 0, 0);
+        data.set(newData);
+        ctx.putImageData(imageData, 0, 0);
         wallTextures[wallName].needsUpdate = true;
       });
     }
