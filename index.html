@@ -27,7 +27,7 @@
     document.body.appendChild(renderer.domElement);
 
     // Create the box boundaries
-    const boxSize = 10;
+    const boxSize = 15;
     const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(boxSize, boxSize, boxSize));
     const boxLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x222222 }));
     scene.add(boxLines);
