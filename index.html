@@ -171,7 +171,7 @@
       const cameraDir = new THREE.Vector3();
       camera.getWorldDirection(cameraDir);
       const dot = wallNormal.dot(cameraDir);
-      return dot > 0; // Positive dot product means facing camera
+      return dot < 0; // Negative dot product means facing camera (opposite direction)
     }
 
     // Helper function to create a new ball
