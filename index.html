@@ -97,11 +97,20 @@
     const numBalls = 40;
     const radius = 0.3;
 
-    // Splatoon-inspired team colors (orange vs blue)
-    const teamColors = [
-      0xFF6B00, // Orange team
-      0x00D9FF  // Cyan/blue team
+    // Splatoon-inspired team color pairs (high contrast, poppy colors)
+    const colorPairs = [
+      [0xFF4500, 0x00CED1], // Orange Red vs Dark Turquoise
+      [0xFF1493, 0x00FF7F], // Deep Pink vs Spring Green
+      [0xFF6347, 0x4169E1], // Tomato vs Royal Blue
+      [0xFFD700, 0x9370DB], // Gold vs Medium Purple
+      [0xFF69B4, 0x32CD32], // Hot Pink vs Lime Green
+      [0xFF8C00, 0x1E90FF], // Dark Orange vs Dodger Blue
+      [0xDC143C, 0x00FFFF], // Crimson vs Cyan
+      [0xFF00FF, 0x7FFF00]  // Magenta vs Chartreuse
     ];
+
+    // Pick a random color pair for this game
+    const teamColors = colorPairs[Math.floor(Math.random() * colorPairs.length)];
 
     for (let i = 0; i < numBalls; i++) {
       const geometry = new THREE.SphereGeometry(radius, 16, 16);
@@ -233,13 +242,11 @@
       const pixelY = v * canvasSize;
       const pixelRadius = (size / boxSize) * canvasSize;
 
-      // Draw circle on canvas
+      // Draw circle on canvas at full opacity
       ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
-      ctx.globalAlpha = 0.6;
       ctx.beginPath();
       ctx.arc(pixelX, pixelY, pixelRadius, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha = 1.0;
 
       // Update texture
       wallTextures[wallName].needsUpdate = true;
@@ -255,21 +262,28 @@
         const imageData = ctx.getImageData(0, 0, canvasSize, canvasSize);
         const data = imageData.data;
 
-        // Scan from bottom to top, extend paint downward
+        // Scan from bottom to top, extend paint downward (more aggressive dripping)
         for (let x = 0; x < canvasSize; x++) {
           for (let y = canvasSize - 2; y >= 0; y--) {
             const idx = (y * canvasSize + x) * 4;
-            const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
-            // If current pixel has paint and below is empty
-            if (data[idx + 3] > 0 && data[belowIdx + 3] === 0) {
-              // Randomly drip down
-              if (Math.random() < 0.3) {
-                // Copy color down with slight fade
-                data[belowIdx] = data[idx];
-                data[belowIdx + 1] = data[idx + 1];
-                data[belowIdx + 2] = data[idx + 2];
-                data[belowIdx + 3] = Math.max(0, data[idx + 3] * 0.95);
+            // If current pixel has paint
+            if (data[idx + 3] > 0) {
+              // Check multiple pixels below for dripping
+              for (let dripDist = 1; dripDist <= 3; dripDist++) {
+                if (y + dripDist >= canvasSize) break;
+
+                const belowIdx = ((y + dripDist) * canvasSize + x) * 4;
+
+                // If below is empty, randomly drip
+                if (data[belowIdx + 3] === 0 && Math.random() < 0.6) {
+                  // Copy color down at full opacity
+                  data[belowIdx] = data[idx];
+                  data[belowIdx + 1] = data[idx + 1];
+                  data[belowIdx + 2] = data[idx + 2];
+                  data[belowIdx + 3] = data[idx + 3];
+                  break; // Only extend to first empty pixel
+                }
               }
             }
           }
