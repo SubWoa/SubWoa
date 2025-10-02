@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SubWoa | Personal Website</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="nav">
+      <div class="logo">SubWoa</div>
+      <ul class="nav__links">
+        <li><a href="#about">About</a></li>
+        <li><a href="#projects">Projects</a></li>
+        <li><a href="#writing">Writing</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+    <div class="hero__content">
+      <p class="eyebrow">Hello, I'm</p>
+      <h1>SubWoa</h1>
+      <p class="subtitle">Software engineer crafting thoughtful, human-centered digital experiences.</p>
+      <div class="hero__cta">
+        <a class="btn" href="#projects">View my work</a>
+        <a class="btn btn--ghost" href="#contact">Get in touch</a>
+      </div>
+    </div>
+    <div class="hero__scroll">Scroll</div>
+  </header>
+
+  <main>
+    <section id="about" class="section section--two-col">
+      <div class="section__label">About</div>
+      <div class="section__content">
+        <h2>A curious maker with a love for clean, resilient systems.</h2>
+        <p>
+          I build products end-to-end, from ideation and design to launch and long-term maintenance.
+          My background spans frontend craft, backend reliability, and developer experience—allowing me
+          to move quickly while keeping long-term sustainability in mind.
+        </p>
+        <p>
+          Outside of code you can find me learning new instruments, exploring specialty coffee, and
+          writing about the intersection of technology and creative expression.
+        </p>
+      </div>
+    </section>
+
+    <section id="projects" class="section">
+      <div class="section__label">Projects</div>
+      <div class="cards">
+        <article class="card">
+          <div class="card__header">
+            <h3>Pulseboard</h3>
+            <span class="chip">Productivity</span>
+          </div>
+          <p>A realtime dashboard for distributed teams that surfaces the health of projects at a glance.</p>
+          <ul class="tags">
+            <li>TypeScript</li>
+            <li>Next.js</li>
+            <li>WebSockets</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="card__header">
+            <h3>Scribe AI</h3>
+            <span class="chip">Tooling</span>
+          </div>
+          <p>An AI-assisted writing environment that blends deep work rituals with intelligent assistance.</p>
+          <ul class="tags">
+            <li>Python</li>
+            <li>FastAPI</li>
+            <li>OpenAI</li>
+          </ul>
+        </article>
+        <article class="card">
+          <div class="card__header">
+            <h3>Voyager Maps</h3>
+            <span class="chip">Exploration</span>
+          </div>
+          <p>Offline-first mapping for hikers and climbers with sync across devices when you're back online.</p>
+          <ul class="tags">
+            <li>Kotlin</li>
+            <li>Compose</li>
+            <li>GraphQL</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="writing" class="section section--two-col">
+      <div class="section__label">Writing</div>
+      <div class="section__content">
+        <article class="writing">
+          <h3>Designing for mindful focus</h3>
+          <p>
+            How do we build tools that promote depth instead of distraction? Here are three principles
+            I use when designing interfaces that help people stay in flow.
+          </p>
+          <a href="#" class="link">Read article →</a>
+        </article>
+        <article class="writing">
+          <h3>The hidden costs of "move fast"</h3>
+          <p>
+            A reflection on balancing velocity with sustainability and the rituals that keep teams aligned
+            as products scale.
+          </p>
+          <a href="#" class="link">Read article →</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="contact" class="section section--contact">
+      <div class="section__label">Contact</div>
+      <div class="section__content">
+        <h2>Let's build something together.</h2>
+        <p>
+          I'm currently open to new opportunities, collaborations, and conversations. Send me a note at
+          <a href="mailto:hello@subwoa.dev">hello@subwoa.dev</a> or find me on <a href="https://www.linkedin.com" target="_blank" rel="noopener">LinkedIn</a> and
+          <a href="https://github.com/SubWoa" target="_blank" rel="noopener">GitHub</a>.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© <span id="year"></span> SubWoa. Crafted with curiosity and care.</p>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
