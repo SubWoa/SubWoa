@@ -25,7 +25,7 @@
   </style>
 </head>
 <body>
-  <div id="version">v1.5</div>
+  <div id="version">v1.6</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const scene = new THREE.Scene();
@@ -297,12 +297,12 @@
             const currentIdx = (y * canvasSize + x) * 4;
             const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
-            // If current pixel has paint, copy it to the pixel below
-            if (data[currentIdx + 3] > 0) {
-              newData[belowIdx] = data[currentIdx];
-              newData[belowIdx + 1] = data[currentIdx + 1];
-              newData[belowIdx + 2] = data[currentIdx + 2];
-              newData[belowIdx + 3] = data[currentIdx + 3];
+            // If current pixel has paint (check newData to include drips we just created), copy it down
+            if (newData[currentIdx + 3] > 0) {
+              newData[belowIdx] = newData[currentIdx];
+              newData[belowIdx + 1] = newData[currentIdx + 1];
+              newData[belowIdx + 2] = newData[currentIdx + 2];
+              newData[belowIdx + 3] = newData[currentIdx + 3];
             }
           }
         }
