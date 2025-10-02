@@ -13,9 +13,19 @@
     canvas {
       display: block;
     }
+    #version {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      color: #666;
+      font-family: monospace;
+      font-size: 12px;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
+  <div id="version">v1.0</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     const scene = new THREE.Scene();
