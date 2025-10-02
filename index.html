@@ -143,48 +143,56 @@
             const newRadius1 = ball1.radius / 2;
             const newRadius2 = ball2.radius / 2;
 
-            // Create two new balls from ball1
+            // Calculate collision normal
+            const nx = dx / distance;
+            const ny = dy / distance;
+            const nz = dz / distance;
+
+            // Offset for separating new balls
+            const offset = 0.1;
+
+            // Create two new balls from ball1 with separation
             const newBall1a = createBall(
-              ball1.position.x,
-              ball1.position.y,
-              ball1.position.z,
-              ball1.velocity.x,
-              ball1.velocity.y,
-              ball1.velocity.z,
+              ball1.position.x - nx * offset,
+              ball1.position.y - ny * offset,
+              ball1.position.z - nz * offset,
+              ball1.velocity.x * 1.1,
+              ball1.velocity.y * 1.1,
+              ball1.velocity.z * 1.1,
               newRadius1,
               ball1.material.color.getHex()
             );
 
             const newBall1b = createBall(
-              ball1.position.x,
-              ball1.position.y,
-              ball1.position.z,
-              ball1.velocity.x,
-              ball1.velocity.y,
-              ball1.velocity.z,
+              ball1.position.x - nx * offset * 0.5,
+              ball1.position.y - ny * offset * 0.5,
+              ball1.position.z - nz * offset * 0.5,
+              ball1.velocity.x * 0.9,
+              ball1.velocity.y * 0.9,
+              ball1.velocity.z * 0.9,
               newRadius1,
               ball1.material.color.getHex()
             );
 
-            // Create two new balls from ball2
+            // Create two new balls from ball2 with separation
             const newBall2a = createBall(
-              ball2.position.x,
-              ball2.position.y,
-              ball2.position.z,
-              ball2.velocity.x,
-              ball2.velocity.y,
-              ball2.velocity.z,
+              ball2.position.x + nx * offset,
+              ball2.position.y + ny * offset,
+              ball2.position.z + nz * offset,
+              ball2.velocity.x * 1.1,
+              ball2.velocity.y * 1.1,
+              ball2.velocity.z * 1.1,
               newRadius2,
               ball2.material.color.getHex()
             );
 
             const newBall2b = createBall(
-              ball2.position.x,
-              ball2.position.y,
-              ball2.position.z,
-              ball2.velocity.x,
-              ball2.velocity.y,
-              ball2.velocity.z,
+              ball2.position.x + nx * offset * 0.5,
+              ball2.position.y + ny * offset * 0.5,
+              ball2.position.z + nz * offset * 0.5,
+              ball2.velocity.x * 0.9,
+              ball2.velocity.y * 0.9,
+              ball2.velocity.z * 0.9,
               newRadius2,
               ball2.material.color.getHex()
             );
