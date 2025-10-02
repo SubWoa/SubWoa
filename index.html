@@ -26,10 +26,38 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Create the box boundaries
+    // Create the box boundaries (only 4 sides visible - left, right, top, bottom)
     const boxSize = 15;
-    const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(boxSize, boxSize, boxSize));
-    const boxLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x222222 }));
+    const halfBox = boxSize / 2;
+    const lineGeometry = new THREE.BufferGeometry();
+    const lineVertices = [];
+
+    // Left face (x = -halfBox)
+    lineVertices.push(-halfBox, -halfBox, -halfBox, -halfBox, halfBox, -halfBox);
+    lineVertices.push(-halfBox, halfBox, -halfBox, -halfBox, halfBox, halfBox);
+    lineVertices.push(-halfBox, halfBox, halfBox, -halfBox, -halfBox, halfBox);
+    lineVertices.push(-halfBox, -halfBox, halfBox, -halfBox, -halfBox, -halfBox);
+
+    // Right face (x = halfBox)
+    lineVertices.push(halfBox, -halfBox, -halfBox, halfBox, halfBox, -halfBox);
+    lineVertices.push(halfBox, halfBox, -halfBox, halfBox, halfBox, halfBox);
+    lineVertices.push(halfBox, halfBox, halfBox, halfBox, -halfBox, halfBox);
+    lineVertices.push(halfBox, -halfBox, halfBox, halfBox, -halfBox, -halfBox);
+
+    // Top face (y = halfBox)
+    lineVertices.push(-halfBox, halfBox, -halfBox, halfBox, halfBox, -halfBox);
+    lineVertices.push(halfBox, halfBox, -halfBox, halfBox, halfBox, halfBox);
+    lineVertices.push(halfBox, halfBox, halfBox, -halfBox, halfBox, halfBox);
+    lineVertices.push(-halfBox, halfBox, halfBox, -halfBox, halfBox, -halfBox);
+
+    // Bottom face (y = -halfBox)
+    lineVertices.push(-halfBox, -halfBox, -halfBox, halfBox, -halfBox, -halfBox);
+    lineVertices.push(halfBox, -halfBox, -halfBox, halfBox, -halfBox, halfBox);
+    lineVertices.push(halfBox, -halfBox, halfBox, -halfBox, -halfBox, halfBox);
+    lineVertices.push(-halfBox, -halfBox, halfBox, -halfBox, -halfBox, -halfBox);
+
+    lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(lineVertices, 3));
+    const boxLines = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({ color: 0x222222 }));
     scene.add(boxLines);
 
     // Create bouncing balls
@@ -85,6 +113,13 @@
 
     // Helper function to create a splotch on the wall
     function createSplotch(x, y, z, color, size) {
+      const halfBox = boxSize / 2;
+
+      // Don't create splotches on front (z+) or back (z-) faces
+      if (Math.abs(z) > halfBox - 0.1) {
+        return;
+      }
+
       const splotchGeometry = new THREE.CircleGeometry(size, 16);
       const splotchMaterial = new THREE.MeshBasicMaterial({
         color: color,
@@ -98,7 +133,6 @@
       splotch.position.set(x, y, z);
 
       // Orient perpendicular to the wall it's on
-      const halfBox = boxSize / 2;
       if (Math.abs(x) > halfBox - 0.1) {
         splotch.rotation.y = Math.PI / 2;
       } else if (Math.abs(y) > halfBox - 0.1) {
