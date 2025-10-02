@@ -34,10 +34,11 @@
 
     // Create bouncing balls
     const balls = [];
-    const numBalls = 20;
+    const numBalls = 40;
+    const radius = 0.3;
 
     for (let i = 0; i < numBalls; i++) {
-      const geometry = new THREE.SphereGeometry(0.3, 16, 16);
+      const geometry = new THREE.SphereGeometry(radius, 16, 16);
       const material = new THREE.MeshPhongMaterial({
         color: Math.random() * 0xffffff,
         shininess: 100
@@ -58,6 +59,7 @@
         (Math.random() - 0.5) * 0.1
       );
 
+      ball.radius = radius;
       scene.add(ball);
       balls.push(ball);
     }
@@ -88,21 +90,76 @@
 
         // Bounce off walls
         const halfBox = boxSize / 2;
-        const radius = 0.3;
 
-        if (Math.abs(ball.position.x) > halfBox - radius) {
+        if (Math.abs(ball.position.x) > halfBox - ball.radius) {
           ball.velocity.x *= -1;
-          ball.position.x = Math.sign(ball.position.x) * (halfBox - radius);
+          ball.position.x = Math.sign(ball.position.x) * (halfBox - ball.radius);
         }
-        if (Math.abs(ball.position.y) > halfBox - radius) {
+        if (Math.abs(ball.position.y) > halfBox - ball.radius) {
           ball.velocity.y *= -1;
-          ball.position.y = Math.sign(ball.position.y) * (halfBox - radius);
+          ball.position.y = Math.sign(ball.position.y) * (halfBox - ball.radius);
         }
-        if (Math.abs(ball.position.z) > halfBox - radius) {
+        if (Math.abs(ball.position.z) > halfBox - ball.radius) {
           ball.velocity.z *= -1;
-          ball.position.z = Math.sign(ball.position.z) * (halfBox - radius);
+          ball.position.z = Math.sign(ball.position.z) * (halfBox - ball.radius);
         }
       });
+
+      // Ball-to-ball collision detection
+      for (let i = 0; i < balls.length; i++) {
+        for (let j = i + 1; j < balls.length; j++) {
+          const ball1 = balls[i];
+          const ball2 = balls[j];
+
+          const dx = ball2.position.x - ball1.position.x;
+          const dy = ball2.position.y - ball1.position.y;
+          const dz = ball2.position.z - ball1.position.z;
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          const minDistance = ball1.radius + ball2.radius;
+
+          if (distance < minDistance) {
+            // Collision detected
+            const nx = dx / distance;
+            const ny = dy / distance;
+            const nz = dz / distance;
+
+            // Relative velocity
+            const dvx = ball2.velocity.x - ball1.velocity.x;
+            const dvy = ball2.velocity.y - ball1.velocity.y;
+            const dvz = ball2.velocity.z - ball1.velocity.z;
+
+            // Relative velocity in collision normal direction
+            const dvn = dvx * nx + dvy * ny + dvz * nz;
+
+            // Do not resolve if velocities are separating
+            if (dvn < 0) {
+              // Equal mass elastic collision
+              ball1.velocity.x += dvn * nx;
+              ball1.velocity.y += dvn * ny;
+              ball1.velocity.z += dvn * nz;
+
+              ball2.velocity.x -= dvn * nx;
+              ball2.velocity.y -= dvn * ny;
+              ball2.velocity.z -= dvn * nz;
+
+              // Separate balls to prevent overlap
+              const overlap = minDistance - distance;
+              const separationX = (overlap / 2) * nx;
+              const separationY = (overlap / 2) * ny;
+              const separationZ = (overlap / 2) * nz;
+
+              ball1.position.x -= separationX;
+              ball1.position.y -= separationY;
+              ball1.position.z -= separationZ;
+
+              ball2.position.x += separationX;
+              ball2.position.y += separationY;
+              ball2.position.z += separationZ;
+            }
+          }
+        }
+      }
 
       // Rotate camera slowly
       const time = Date.now() * 0.0001;
