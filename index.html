@@ -278,28 +278,26 @@
         const ctx = wallCanvases[wallName];
         const imageData = ctx.getImageData(0, 0, canvasSize, canvasSize);
         const data = imageData.data;
+        const newData = new Uint8ClampedArray(data);
 
-        // Simple drip: scan from bottom to top and shift painted pixels down
-        for (let y = canvasSize - 2; y >= 0; y--) {
+        // Shift all paint down by 1 pixel (scan from bottom to top to avoid overwriting)
+        for (let y = canvasSize - 1; y > 0; y--) {
           for (let x = 0; x < canvasSize; x++) {
-            const idx = (y * canvasSize + x) * 4;
-            const belowIdx = ((y + 1) * canvasSize + x) * 4;
+            const currentIdx = (y * canvasSize + x) * 4;
+            const aboveIdx = ((y - 1) * canvasSize + x) * 4;
 
-            // If current pixel has paint and pixel below is empty
-            if (data[idx + 3] > 0 && data[belowIdx + 3] === 0) {
-              // Move paint down
-              data[belowIdx] = data[idx];
-              data[belowIdx + 1] = data[idx + 1];
-              data[belowIdx + 2] = data[idx + 2];
-              data[belowIdx + 3] = data[idx + 3];
-
-              // Clear original pixel
-              data[idx + 3] = 0;
+            // Copy pixel from above if current is empty and above has paint
+            if (data[currentIdx + 3] === 0 && data[aboveIdx + 3] > 0) {
+              newData[currentIdx] = data[aboveIdx];
+              newData[currentIdx + 1] = data[aboveIdx + 1];
+              newData[currentIdx + 2] = data[aboveIdx + 2];
+              newData[currentIdx + 3] = data[aboveIdx + 3];
+              newData[aboveIdx + 3] = 0; // Clear the pixel above
             }
           }
         }
 
-        ctx.putImageData(imageData, 0, 0);
+        ctx.putImageData(new ImageData(newData, canvasSize, canvasSize), 0, 0);
         wallTextures[wallName].needsUpdate = true;
       });
     }
