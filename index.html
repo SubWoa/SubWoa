@@ -280,19 +280,19 @@
         const data = imageData.data;
         const newData = new Uint8ClampedArray(data);
 
-        // Shift all paint down by 1 pixel (scan from bottom to top to avoid overwriting)
-        for (let y = canvasSize - 1; y > 0; y--) {
+        // Scan from bottom to top, move paint down
+        for (let y = canvasSize - 2; y >= 0; y--) {
           for (let x = 0; x < canvasSize; x++) {
             const currentIdx = (y * canvasSize + x) * 4;
-            const aboveIdx = ((y - 1) * canvasSize + x) * 4;
+            const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
-            // Copy pixel from above if current is empty and above has paint
-            if (data[currentIdx + 3] === 0 && data[aboveIdx + 3] > 0) {
-              newData[currentIdx] = data[aboveIdx];
-              newData[currentIdx + 1] = data[aboveIdx + 1];
-              newData[currentIdx + 2] = data[aboveIdx + 2];
-              newData[currentIdx + 3] = data[aboveIdx + 3];
-              newData[aboveIdx + 3] = 0; // Clear the pixel above
+            // If current pixel has paint and below is empty, move it down
+            if (newData[currentIdx + 3] > 0 && newData[belowIdx + 3] === 0) {
+              newData[belowIdx] = newData[currentIdx];
+              newData[belowIdx + 1] = newData[currentIdx + 1];
+              newData[belowIdx + 2] = newData[currentIdx + 2];
+              newData[belowIdx + 3] = newData[currentIdx + 3];
+              newData[currentIdx + 3] = 0; // Clear original
             }
           }
         }
