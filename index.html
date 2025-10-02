@@ -280,29 +280,18 @@
         const data = imageData.data;
         const newData = new Uint8ClampedArray(data);
 
-        // Scan each column from bottom to top, find the lowest paint pixel and extend it down
-        for (let x = 0; x < canvasSize; x++) {
-          // Find the lowest paint pixel in this column
-          let lowestPaintY = -1;
-          let lowestPaintColor = null;
+        // Every painted pixel fills the empty pixel below it
+        for (let y = 0; y < canvasSize - 1; y++) {
+          for (let x = 0; x < canvasSize; x++) {
+            const currentIdx = (y * canvasSize + x) * 4;
+            const belowIdx = ((y + 1) * canvasSize + x) * 4;
 
-          for (let y = canvasSize - 1; y >= 0; y--) {
-            const idx = (y * canvasSize + x) * 4;
-            if (data[idx + 3] > 0) {
-              lowestPaintY = y;
-              lowestPaintColor = [data[idx], data[idx + 1], data[idx + 2], data[idx + 3]];
-              break;
-            }
-          }
-
-          // If we found paint and there's space below it, extend it down
-          if (lowestPaintY >= 0 && lowestPaintY < canvasSize - 1) {
-            const belowIdx = ((lowestPaintY + 1) * canvasSize + x) * 4;
-            if (newData[belowIdx + 3] === 0) {
-              newData[belowIdx] = lowestPaintColor[0];
-              newData[belowIdx + 1] = lowestPaintColor[1];
-              newData[belowIdx + 2] = lowestPaintColor[2];
-              newData[belowIdx + 3] = lowestPaintColor[3];
+            // If current pixel has paint and pixel below is empty, extend paint down
+            if (data[currentIdx + 3] > 0 && newData[belowIdx + 3] === 0) {
+              newData[belowIdx] = data[currentIdx];
+              newData[belowIdx + 1] = data[currentIdx + 1];
+              newData[belowIdx + 2] = data[currentIdx + 2];
+              newData[belowIdx + 3] = data[currentIdx + 3];
             }
           }
         }
