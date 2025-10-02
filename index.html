@@ -3,135 +3,119 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SubWoa | Personal Website</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css">
+  <title>Bouncing Things</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0a0a0a;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <header class="hero">
-    <nav class="nav">
-      <div class="logo">SubWoa</div>
-      <ul class="nav__links">
-        <li><a href="#about">About</a></li>
-        <li><a href="#projects">Projects</a></li>
-        <li><a href="#writing">Writing</a></li>
-        <li><a href="#contact">Contact</a></li>
-      </ul>
-    </nav>
-    <div class="hero__content">
-      <p class="eyebrow">Hello, I'm</p>
-      <h1>SubWoa</h1>
-      <p class="subtitle">Software engineer crafting thoughtful, human-centered digital experiences.</p>
-      <div class="hero__cta">
-        <a class="btn" href="#projects">View my work</a>
-        <a class="btn btn--ghost" href="#contact">Get in touch</a>
-      </div>
-    </div>
-    <div class="hero__scroll">Scroll</div>
-  </header>
-
-  <main>
-    <section id="about" class="section section--two-col">
-      <div class="section__label">About</div>
-      <div class="section__content">
-        <h2>A curious maker with a love for clean, resilient systems.</h2>
-        <p>
-          I build products end-to-end, from ideation and design to launch and long-term maintenance.
-          My background spans frontend craft, backend reliability, and developer experience—allowing me
-          to move quickly while keeping long-term sustainability in mind.
-        </p>
-        <p>
-          Outside of code you can find me learning new instruments, exploring specialty coffee, and
-          writing about the intersection of technology and creative expression.
-        </p>
-      </div>
-    </section>
-
-    <section id="projects" class="section">
-      <div class="section__label">Projects</div>
-      <div class="cards">
-        <article class="card">
-          <div class="card__header">
-            <h3>Pulseboard</h3>
-            <span class="chip">Productivity</span>
-          </div>
-          <p>A realtime dashboard for distributed teams that surfaces the health of projects at a glance.</p>
-          <ul class="tags">
-            <li>TypeScript</li>
-            <li>Next.js</li>
-            <li>WebSockets</li>
-          </ul>
-        </article>
-        <article class="card">
-          <div class="card__header">
-            <h3>Scribe AI</h3>
-            <span class="chip">Tooling</span>
-          </div>
-          <p>An AI-assisted writing environment that blends deep work rituals with intelligent assistance.</p>
-          <ul class="tags">
-            <li>Python</li>
-            <li>FastAPI</li>
-            <li>OpenAI</li>
-          </ul>
-        </article>
-        <article class="card">
-          <div class="card__header">
-            <h3>Voyager Maps</h3>
-            <span class="chip">Exploration</span>
-          </div>
-          <p>Offline-first mapping for hikers and climbers with sync across devices when you're back online.</p>
-          <ul class="tags">
-            <li>Kotlin</li>
-            <li>Compose</li>
-            <li>GraphQL</li>
-          </ul>
-        </article>
-      </div>
-    </section>
-
-    <section id="writing" class="section section--two-col">
-      <div class="section__label">Writing</div>
-      <div class="section__content">
-        <article class="writing">
-          <h3>Designing for mindful focus</h3>
-          <p>
-            How do we build tools that promote depth instead of distraction? Here are three principles
-            I use when designing interfaces that help people stay in flow.
-          </p>
-          <a href="#" class="link">Read article →</a>
-        </article>
-        <article class="writing">
-          <h3>The hidden costs of "move fast"</h3>
-          <p>
-            A reflection on balancing velocity with sustainability and the rituals that keep teams aligned
-            as products scale.
-          </p>
-          <a href="#" class="link">Read article →</a>
-        </article>
-      </div>
-    </section>
-
-    <section id="contact" class="section section--contact">
-      <div class="section__label">Contact</div>
-      <div class="section__content">
-        <h2>Let's build something together.</h2>
-        <p>
-          I'm currently open to new opportunities, collaborations, and conversations. Send me a note at
-          <a href="mailto:hello@subwoa.dev">hello@subwoa.dev</a> or find me on <a href="https://www.linkedin.com" target="_blank" rel="noopener">LinkedIn</a> and
-          <a href="https://github.com/SubWoa" target="_blank" rel="noopener">GitHub</a>.
-        </p>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <p>© <span id="year"></span> SubWoa. Crafted with curiosity and care.</p>
-  </footer>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Create the box boundaries
+    const boxSize = 10;
+    const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(boxSize, boxSize, boxSize));
+    const boxLines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x444444 }));
+    scene.add(boxLines);
+
+    // Create bouncing balls
+    const balls = [];
+    const numBalls = 20;
+
+    for (let i = 0; i < numBalls; i++) {
+      const geometry = new THREE.SphereGeometry(0.3, 16, 16);
+      const material = new THREE.MeshPhongMaterial({
+        color: Math.random() * 0xffffff,
+        shininess: 100
+      });
+      const ball = new THREE.Mesh(geometry, material);
+
+      // Random starting position
+      ball.position.set(
+        (Math.random() - 0.5) * (boxSize - 1),
+        (Math.random() - 0.5) * (boxSize - 1),
+        (Math.random() - 0.5) * (boxSize - 1)
+      );
+
+      // Random velocity
+      ball.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.1,
+        (Math.random() - 0.5) * 0.1
+      );
+
+      scene.add(ball);
+      balls.push(ball);
+    }
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+    pointLight.position.set(10, 10, 10);
+    scene.add(pointLight);
+
+    camera.position.z = 15;
+    camera.position.y = 5;
+    camera.lookAt(0, 0, 0);
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      balls.forEach(ball => {
+        // Update position
+        ball.position.add(ball.velocity);
+
+        // Bounce off walls
+        const halfBox = boxSize / 2;
+        const radius = 0.3;
+
+        if (Math.abs(ball.position.x) > halfBox - radius) {
+          ball.velocity.x *= -1;
+          ball.position.x = Math.sign(ball.position.x) * (halfBox - radius);
+        }
+        if (Math.abs(ball.position.y) > halfBox - radius) {
+          ball.velocity.y *= -1;
+          ball.position.y = Math.sign(ball.position.y) * (halfBox - radius);
+        }
+        if (Math.abs(ball.position.z) > halfBox - radius) {
+          ball.velocity.z *= -1;
+          ball.position.z = Math.sign(ball.position.z) * (halfBox - radius);
+        }
+      });
+
+      // Rotate camera slowly
+      const time = Date.now() * 0.0001;
+      camera.position.x = Math.sin(time) * 15;
+      camera.position.z = Math.cos(time) * 15;
+      camera.lookAt(0, 0, 0);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </body>
 </html>
