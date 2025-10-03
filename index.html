@@ -31,8 +31,10 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 
+    const maxPixelRatio = 2;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio));
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
@@ -42,6 +44,19 @@
 
     // Create individual edge lines so we can hide shared edges between camera-facing walls
     const boxEdges = [];
+    const wallCenters = {
+      'front': new THREE.Vector3(0, 0, halfBox),
+      'back': new THREE.Vector3(0, 0, -halfBox),
+      'left': new THREE.Vector3(-halfBox, 0, 0),
+      'right': new THREE.Vector3(halfBox, 0, 0)
+    };
+    const wallNormals = {
+      'front': new THREE.Vector3(0, 0, -1),
+      'back': new THREE.Vector3(0, 0, 1),
+      'left': new THREE.Vector3(1, 0, 0),
+      'right': new THREE.Vector3(-1, 0, 0)
+    };
+    const wallToCamera = new THREE.Vector3();
 
     function createEdge(x1, y1, z1, x2, y2, z2, walls) {
       const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -81,31 +96,16 @@
         return false;
       }
 
-      // Vector from wall center to camera
-      const wallCenters = {
-        'front': new THREE.Vector3(0, 0, halfBox),
-        'back': new THREE.Vector3(0, 0, -halfBox),
-        'left': new THREE.Vector3(-halfBox, 0, 0),
-        'right': new THREE.Vector3(halfBox, 0, 0)
-      };
-
-      const wallNormals = {
-        'front': new THREE.Vector3(0, 0, -1),  // inward normal
-        'back': new THREE.Vector3(0, 0, 1),
-        'left': new THREE.Vector3(1, 0, 0),
-        'right': new THREE.Vector3(-1, 0, 0)
-      };
-
-      const wallToCamera = new THREE.Vector3().subVectors(camera.position, wallCenters[wallName]);
-      const normal = wallNormals[wallName];
-      const dot = normal.dot(wallToCamera);
-      return dot > 0; // Positive means inward normal points toward camera = camera is on inside
+      wallToCamera.copy(camera.position).sub(wallCenters[wallName]);
+      return wallNormals[wallName].dot(wallToCamera) > 0; // Positive means inward normal points toward camera = camera is on inside
     }
 
     // Create bouncing balls - Splatoon style with two team colors
     const balls = [];
     const numBalls = 40;
     const radius = 0.3;
+    const baseSphereGeometry = new THREE.SphereGeometry(1, 16, 16);
+    const materialCache = new Map();
 
     // Splatoon-inspired team color pairs (high contrast, poppy colors)
     const colorPairs = [
@@ -123,30 +123,18 @@
     const teamColors = colorPairs[Math.floor(Math.random() * colorPairs.length)];
 
     for (let i = 0; i < numBalls; i++) {
-      const geometry = new THREE.SphereGeometry(radius, 16, 16);
       const teamColor = teamColors[i % 2]; // Alternate between teams
-      const material = new THREE.MeshPhongMaterial({
-        color: teamColor,
-        shininess: 100
-      });
-      const ball = new THREE.Mesh(geometry, material);
-
-      // Random starting position
-      ball.position.set(
+      const ball = createBall(
         (Math.random() - 0.5) * (boxSize - 1),
         (Math.random() - 0.5) * (boxSize - 1),
-        (Math.random() - 0.5) * (boxSize - 1)
-      );
-
-      // Random velocity
-      ball.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * (boxSize - 1),
         (Math.random() - 0.5) * 0.1,
         (Math.random() - 0.5) * 0.1,
-        (Math.random() - 0.5) * 0.1
+        (Math.random() - 0.5) * 0.1,
+        radius,
+        teamColor
       );
 
-      ball.radius = radius;
-      scene.add(ball);
       balls.push(ball);
     }
 
@@ -162,16 +150,28 @@
     pointLight2.position.set(-10, -10, -10);
     scene.add(pointLight2);
 
-    camera.position.z = 15;
+    const cameraOrbitRadius = 15;
+    camera.position.z = cameraOrbitRadius;
     camera.position.y = 5;
     camera.lookAt(0, 0, 0);
 
     // Create paint canvases for each wall
     const wallCanvases = {};
     const wallPaintData = {};
+    const wallPixelData = {};
     const wallTextures = {};
     const wallPlanes = {};
+    const wallHasPaint = {
+      front: false,
+      back: false,
+      left: false,
+      right: false,
+      top: false,
+      bottom: false
+    };
+    const wallActiveRows = {};
     const canvasSize = 1024;
+    const circleScratch = [];
 
     function createWallCanvas(wallName) {
       const canvas = document.createElement('canvas');
@@ -216,10 +216,14 @@
       scene.add(plane);
       wallCanvases[wallName] = ctx;
       const imageData = ctx.createImageData(canvasSize, canvasSize);
+      const pixelData = new Uint32Array(imageData.data.buffer);
+      pixelData.fill(0);
       wallPaintData[wallName] = imageData;
+      wallPixelData[wallName] = pixelData;
       ctx.putImageData(imageData, 0, 0);
       wallTextures[wallName] = texture;
       wallPlanes[wallName] = plane;
+      wallActiveRows[wallName] = { min: canvasSize, max: -1 };
     }
 
     createWallCanvas('front');
@@ -231,21 +235,32 @@
 
     // Helper function to paint a splotch on the wall canvas
     function paintSplotch(x, y, z, color, size) {
-      const halfBox = boxSize / 2;
       let wallName, u, v;
 
       // Determine which wall and convert to UV coordinates (0-1)
-      if (Math.abs(x) > halfBox - 0.1) {
-        wallName = Math.sign(x) > 0 ? 'right' : 'left';
+      if (x >= halfBox - 0.1) {
+        wallName = 'right';
         u = (z + halfBox) / boxSize;
         v = 1 - (y + halfBox) / boxSize;
-      } else if (Math.abs(y) > halfBox - 0.1) {
-        wallName = Math.sign(y) > 0 ? 'top' : 'bottom';
+      } else if (x <= -halfBox + 0.1) {
+        wallName = 'left';
+        u = (z + halfBox) / boxSize;
+        v = 1 - (y + halfBox) / boxSize;
+      } else if (y >= halfBox - 0.1) {
+        wallName = 'top';
         u = (x + halfBox) / boxSize;
         v = 1 - (z + halfBox) / boxSize;
-      } else if (Math.abs(z) > halfBox - 0.1) {
-        wallName = Math.sign(z) > 0 ? 'front' : 'back';
-        u = Math.sign(z) > 0 ? 1 - (x + halfBox) / boxSize : (x + halfBox) / boxSize;
+      } else if (y <= -halfBox + 0.1) {
+        wallName = 'bottom';
+        u = (x + halfBox) / boxSize;
+        v = 1 - (z + halfBox) / boxSize;
+      } else if (z >= halfBox - 0.1) {
+        wallName = 'front';
+        u = 1 - (x + halfBox) / boxSize;
+        v = 1 - (y + halfBox) / boxSize;
+      } else if (z <= -halfBox + 0.1) {
+        wallName = 'back';
+        u = (x + halfBox) / boxSize;
         v = 1 - (y + halfBox) / boxSize;
       }
 
@@ -253,7 +268,7 @@
 
       const ctx = wallCanvases[wallName];
       const imageData = wallPaintData[wallName];
-      const data = imageData.data;
+      const data = wallPixelData[wallName];
       const pixelX = u * canvasSize;
       const pixelY = v * canvasSize;
       const pixelRadius = (size / boxSize) * canvasSize;
@@ -261,26 +276,38 @@
       const colorR = (color >> 16) & 0xFF;
       const colorG = (color >> 8) & 0xFF;
       const colorB = color & 0xFF;
+      const packedColor =
+        (colorR & 0xFF) |
+        ((colorG & 0xFF) << 8) |
+        ((colorB & 0xFF) << 16) |
+        (255 << 24);
 
       // Build the splatter from overlapping opaque circles
-      const circles = [];
+      const circles = circleScratch;
       const numSplats = Math.floor(Math.random() * 5) + 8; // 8-12 splats
       for (let i = 0; i < numSplats; i++) {
+        const circle = circles[i] || (circles[i] = { x: 0, y: 0, r: 0 });
         const angle = (i / numSplats) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
         const distance = pixelRadius * (0.3 + Math.random() * 0.7);
-        const splatX = pixelX + Math.cos(angle) * distance;
-        const splatY = pixelY + Math.sin(angle) * distance;
-        const splatRadius = pixelRadius * (0.3 + Math.random() * 0.4);
-        circles.push({ x: splatX, y: splatY, r: splatRadius });
+        circle.x = pixelX + Math.cos(angle) * distance;
+        circle.y = pixelY + Math.sin(angle) * distance;
+        circle.r = pixelRadius * (0.3 + Math.random() * 0.4);
       }
-      circles.push({ x: pixelX, y: pixelY, r: pixelRadius * 0.6 });
+      const centerIndex = numSplats;
+      const centerCircle = circles[centerIndex] || (circles[centerIndex] = { x: 0, y: 0, r: 0 });
+      centerCircle.x = pixelX;
+      centerCircle.y = pixelY;
+      centerCircle.r = pixelRadius * 0.6;
+      const circleCount = centerIndex + 1;
+      circles.length = circleCount;
 
       let minX = canvasSize;
       let minY = canvasSize;
       let maxX = 0;
       let maxY = 0;
 
-      circles.forEach(circle => {
+      for (let i = 0; i < circleCount; i++) {
+        const circle = circles[i];
         const left = Math.max(0, Math.floor(circle.x - circle.r));
         const right = Math.min(canvasSize - 1, Math.ceil(circle.x + circle.r));
         const top = Math.max(0, Math.floor(circle.y - circle.r));
@@ -289,11 +316,16 @@
         if (right > maxX) maxX = right;
         if (top < minY) minY = top;
         if (bottom > maxY) maxY = bottom;
-      });
+      }
 
       if (minX > maxX || minY > maxY) {
         return;
       }
+
+      wallHasPaint[wallName] = true;
+      const bounds = wallActiveRows[wallName];
+      if (minY < bounds.min) bounds.min = minY;
+      if (maxY > bounds.max) bounds.max = maxY;
 
       for (let py = minY; py <= maxY; py++) {
         const centerY = py + 0.5;
@@ -312,11 +344,8 @@
 
           if (!inside) continue;
 
-          const idx = (py * canvasSize + px) * 4;
-          data[idx] = colorR;
-          data[idx + 1] = colorG;
-          data[idx + 2] = colorB;
-          data[idx + 3] = 255;
+          const idx = py * canvasSize + px;
+          data[idx] = packedColor;
         }
       }
 
@@ -334,44 +363,51 @@
       verticalWalls.forEach(wallName => {
         const ctx = wallCanvases[wallName];
         const imageData = wallPaintData[wallName];
-        const data = imageData.data;
-        const newData = new Uint8ClampedArray(data);
+        const data = wallPixelData[wallName];
 
-        const pixelsMatch = (idxA, idxB) =>
-          data[idxA] === data[idxB] &&
-          data[idxA + 1] === data[idxB + 1] &&
-          data[idxA + 2] === data[idxB + 2] &&
-          data[idxA + 3] === data[idxB + 3];
+        if (!wallHasPaint[wallName]) {
+          return;
+        }
 
-        // Copy painted pixels downward (splotches stay in place, drips extend below)
-        // Only drip from pixels whose immediate horizontal neighbors share the same color
-        for (let y = 0; y < canvasSize - 1; y++) {
-          for (let x = 0; x < canvasSize; x++) {
-            const currentIdx = (y * canvasSize + x) * 4;
-            const belowIdx = ((y + 1) * canvasSize + x) * 4;
+        const bounds = wallActiveRows[wallName];
+        if (bounds.max < 0) {
+          return;
+        }
 
-            // Copy paint down if current has paint
-            if (data[currentIdx + 3] > 0) {
-              let shouldDrip = false;
-              if (x > 0 && x < canvasSize - 1) {
-                const leftIdx = currentIdx - 4;
-                const rightIdx = currentIdx + 4;
-                shouldDrip = pixelsMatch(currentIdx, leftIdx) && pixelsMatch(currentIdx, rightIdx);
-              }
+        const startRow = Math.max(0, bounds.min);
+        const endRow = Math.min(canvasSize - 2, bounds.max);
+        let newMaxRow = bounds.max;
 
-              if (!shouldDrip) {
-                continue;
-              }
+        if (startRow > endRow) {
+          return;
+        }
 
-              newData[belowIdx] = data[currentIdx];
-              newData[belowIdx + 1] = data[currentIdx + 1];
-              newData[belowIdx + 2] = data[currentIdx + 2];
-              newData[belowIdx + 3] = data[currentIdx + 3];
+        for (let y = endRow; y >= startRow; y--) {
+          const rowOffset = y * canvasSize;
+          const belowOffset = (y + 1) * canvasSize;
+          for (let x = 1; x < canvasSize - 1; x++) {
+            const currentIdx = rowOffset + x;
+            const pixel = data[currentIdx];
+            if ((pixel >>> 24) === 0) {
+              continue;
+            }
+
+            const leftPixel = data[currentIdx - 1];
+            const rightPixel = data[currentIdx + 1];
+            if (pixel !== leftPixel || pixel !== rightPixel) {
+              continue;
+            }
+
+            const belowIdx = belowOffset + x;
+            data[belowIdx] = pixel;
+            if (y + 1 > newMaxRow) {
+              newMaxRow = y + 1;
             }
           }
         }
 
-        data.set(newData);
+        bounds.max = Math.min(canvasSize - 1, newMaxRow);
+
         ctx.putImageData(imageData, 0, 0);
         wallTextures[wallName].needsUpdate = true;
       });
@@ -379,12 +415,17 @@
 
     // Helper function to create a new ball
     function createBall(x, y, z, vx, vy, vz, r, color) {
-      const geometry = new THREE.SphereGeometry(r, 16, 16);
-      const material = new THREE.MeshPhongMaterial({
-        color: color,
-        shininess: 100
-      });
-      const ball = new THREE.Mesh(geometry, material);
+      let material = materialCache.get(color);
+      if (!material) {
+        material = new THREE.MeshPhongMaterial({
+          color: color,
+          shininess: 100
+        });
+        materialCache.set(color, material);
+      }
+
+      const ball = new THREE.Mesh(baseSphereGeometry, material);
+      ball.scale.setScalar(r);
       ball.position.set(x, y, z);
       ball.velocity = new THREE.Vector3(vx, vy, vz);
       ball.radius = r;
@@ -403,35 +444,50 @@
         dripFrameCounter = 0;
       }
 
+      const boundary = halfBox;
+      const paintScale = 1.5;
       balls.forEach(ball => {
         // Update position
         ball.position.add(ball.velocity);
 
-        // Bounce off walls and create splotches
-        const halfBox = boxSize / 2;
+        const maxX = boundary - ball.radius;
+        const maxY = boundary - ball.radius;
+        const maxZ = boundary - ball.radius;
+        const colorHex = ball.material.color.getHex();
 
-        if (Math.abs(ball.position.x) > halfBox - ball.radius) {
+        if (ball.position.x > maxX) {
           ball.velocity.x *= -1;
-          const wallX = Math.sign(ball.position.x) * halfBox;
-          ball.position.x = Math.sign(ball.position.x) * (halfBox - ball.radius);
-          paintSplotch(wallX, ball.position.y, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
+          ball.position.x = maxX;
+          paintSplotch(boundary, ball.position.y, ball.position.z, colorHex, ball.radius * paintScale);
+        } else if (ball.position.x < -maxX) {
+          ball.velocity.x *= -1;
+          ball.position.x = -maxX;
+          paintSplotch(-boundary, ball.position.y, ball.position.z, colorHex, ball.radius * paintScale);
         }
-        if (Math.abs(ball.position.y) > halfBox - ball.radius) {
+
+        if (ball.position.y > maxY) {
           ball.velocity.y *= -1;
-          const wallY = Math.sign(ball.position.y) * halfBox;
-          ball.position.y = Math.sign(ball.position.y) * (halfBox - ball.radius);
-          paintSplotch(ball.position.x, wallY, ball.position.z, ball.material.color.getHex(), ball.radius * 1.5);
+          ball.position.y = maxY;
+          paintSplotch(ball.position.x, boundary, ball.position.z, colorHex, ball.radius * paintScale);
+        } else if (ball.position.y < -maxY) {
+          ball.velocity.y *= -1;
+          ball.position.y = -maxY;
+          paintSplotch(ball.position.x, -boundary, ball.position.z, colorHex, ball.radius * paintScale);
         }
-        if (Math.abs(ball.position.z) > halfBox - ball.radius) {
+
+        if (ball.position.z > maxZ) {
           ball.velocity.z *= -1;
-          const wallZ = Math.sign(ball.position.z) * halfBox;
-          ball.position.z = Math.sign(ball.position.z) * (halfBox - ball.radius);
-          paintSplotch(ball.position.x, ball.position.y, wallZ, ball.material.color.getHex(), ball.radius * 1.5);
+          ball.position.z = maxZ;
+          paintSplotch(ball.position.x, ball.position.y, boundary, colorHex, ball.radius * paintScale);
+        } else if (ball.position.z < -maxZ) {
+          ball.velocity.z *= -1;
+          ball.position.z = -maxZ;
+          paintSplotch(ball.position.x, ball.position.y, -boundary, colorHex, ball.radius * paintScale);
         }
       });
 
       // Ball-to-ball collision detection
-      const ballsToRemove = [];
+      const ballsToRemove = new Set();
       const ballsToAdd = [];
 
       for (let i = 0; i < balls.length; i++) {
@@ -439,7 +495,7 @@
           const ball1 = balls[i];
           const ball2 = balls[j];
 
-          if (ballsToRemove.includes(ball1) || ballsToRemove.includes(ball2)) continue;
+          if (ballsToRemove.has(ball1) || ballsToRemove.has(ball2)) continue;
 
           const dx = ball2.position.x - ball1.position.x;
           const dy = ball2.position.y - ball1.position.y;
@@ -528,7 +584,8 @@
             );
 
             ballsToAdd.push(newBall1a, newBall1b, newBall2a, newBall2b);
-            ballsToRemove.push(ball1, ball2);
+            ballsToRemove.add(ball1);
+            ballsToRemove.add(ball2);
           }
         }
       }
@@ -536,11 +593,15 @@
       // Remove collided balls
       ballsToRemove.forEach(ball => {
         scene.remove(ball);
-        const index = balls.indexOf(ball);
-        if (index > -1) {
-          balls.splice(index, 1);
-        }
       });
+
+      if (ballsToRemove.size > 0) {
+        for (let i = balls.length - 1; i >= 0; i--) {
+          if (ballsToRemove.has(balls[i])) {
+            balls.splice(i, 1);
+          }
+        }
+      }
 
       // Add new balls
       ballsToAdd.forEach(ball => {
@@ -549,8 +610,8 @@
 
       // Rotate camera slowly
       const time = Date.now() * 0.0001;
-      camera.position.x = Math.sin(time) * 15;
-      camera.position.z = Math.cos(time) * 15;
+      camera.position.x = Math.sin(time) * cameraOrbitRadius;
+      camera.position.z = Math.cos(time) * cameraOrbitRadius;
       camera.lookAt(0, 0, 0);
 
       // Hide edges where both adjacent walls are opaque (camera can't see through either)
@@ -575,6 +636,7 @@
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio));
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
   </script>
